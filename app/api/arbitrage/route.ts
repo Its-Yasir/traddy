@@ -33,6 +33,7 @@ export async function GET() {
       exchanges.map(async (ex): Promise<ExchangeMarketData> => {
         try {
           // Set a timeout for individual exchange fetches
+
           const markets = (await Promise.race([
             ex.instance.loadMarkets(),
             new Promise((_, reject) =>
@@ -58,11 +59,14 @@ export async function GET() {
     ];
 
     const safeData: Record<string, Record<string, number>> = {};
+    // Initialize safeData with empty objects for all exchanges to prevent TypeErrors later
+    for (const ex of exchanges) {
+      safeData[ex.name] = {};
+    }
 
     for (const ex of marketData) {
       if (!ex.tickers || Object.keys(ex.tickers).length === 0) continue;
 
-      safeData[ex.name] = {};
       for (const symbol in ex.tickers) {
         const t = ex.tickers[symbol];
         const cleanSymbol = symbol.split(":")[0];
@@ -100,16 +104,20 @@ export async function GET() {
         const ex1 = exNames[i];
         const ex2 = exNames[j];
 
-        const ex1Symbols = Object.keys(safeData[ex1]);
-        const ex2Symbols = Object.keys(safeData[ex2]);
+        // Access with defaults just in case
+        const ex1Data = safeData[ex1] || {};
+        const ex2Data = safeData[ex2] || {};
+
+        const ex1Symbols = Object.keys(ex1Data);
+        const ex2Symbols = Object.keys(ex2Data);
 
         const commonSymbols = ex1Symbols.filter((sym) =>
           ex2Symbols.includes(sym),
         );
 
         for (const sym of commonSymbols) {
-          const p1 = safeData[ex1][sym];
-          const p2 = safeData[ex2][sym];
+          const p1 = ex1Data[sym];
+          const p2 = ex2Data[sym];
 
           if (p1 > 0 && p2 > 0) {
             const diff = Math.abs(p1 - p2);
