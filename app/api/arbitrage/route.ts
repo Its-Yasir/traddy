@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import ccxt from "ccxt";
+import type { Market, Ticker } from "ccxt";
 
 // Opt out of caching for this API route so it fetches fresh data on every poll.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+interface ExchangeMarketData {
+  name: string;
+  markets: Record<string, Market>;
+  tickers: Record<string, Ticker>;
+}
 
 export async function GET() {
   try {
@@ -22,16 +29,16 @@ export async function GET() {
     ];
 
     // Fetch tickers and load markets to get active status
-    const marketData = await Promise.all(
-      exchanges.map(async (ex) => {
+    const marketData: ExchangeMarketData[] = await Promise.all(
+      exchanges.map(async (ex): Promise<ExchangeMarketData> => {
         try {
           // Set a timeout for individual exchange fetches
-          const markets = await Promise.race([
+          const markets = (await Promise.race([
             ex.instance.loadMarkets(),
             new Promise((_, reject) =>
               setTimeout(() => reject(new Error(`${ex.name} timeout`)), 10000),
             ),
-          ]);
+          ])) as Record<string, Market>;
           const tickers = await ex.instance.fetchTickers();
           return { name: ex.name, markets, tickers };
         } catch (err) {
