@@ -24,9 +24,20 @@ export async function GET() {
     // Fetch tickers and load markets to get active status
     const marketData = await Promise.all(
       exchanges.map(async (ex) => {
-        const markets = await ex.instance.loadMarkets();
-        const tickers = await ex.instance.fetchTickers();
-        return { name: ex.name, markets, tickers };
+        try {
+          // Set a timeout for individual exchange fetches
+          const markets = await Promise.race([
+            ex.instance.loadMarkets(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error(`${ex.name} timeout`)), 10000),
+            ),
+          ]);
+          const tickers = await ex.instance.fetchTickers();
+          return { name: ex.name, markets, tickers };
+        } catch (err) {
+          console.error(`Error fetching from ${ex.name}:`, err);
+          return { name: ex.name, markets: {}, tickers: {} };
+        }
       }),
     );
 
@@ -42,6 +53,8 @@ export async function GET() {
     const safeData: Record<string, Record<string, number>> = {};
 
     for (const ex of marketData) {
+      if (!ex.tickers || Object.keys(ex.tickers).length === 0) continue;
+
       safeData[ex.name] = {};
       for (const symbol in ex.tickers) {
         const t = ex.tickers[symbol];

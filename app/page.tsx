@@ -438,8 +438,8 @@ function StatCard({
   textClass?: string;
 }) {
   return (
-    <div className="bg-[#0f0f13] border border-white/[0.05] rounded-xl p-5 backdrop-blur-md relative overflow-hidden group">
-      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:via-crypto-accent/30 transition-all duration-500" />
+    <div className="bg-[#0f0f13] border border-white/5 rounded-xl p-5 backdrop-blur-md relative overflow-hidden group">
+      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-linear-to-r from-transparent via-white/10 to-transparent group-hover:via-crypto-accent/30 transition-all duration-500" />
       <div className="text-neutral-500 text-xs font-medium tracking-wide uppercase mb-1">
         {label}
       </div>
