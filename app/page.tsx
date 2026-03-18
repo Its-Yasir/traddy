@@ -9,6 +9,7 @@ import {
   useCallback,
 } from "react";
 import useSWR from "swr";
+import { safeStorage } from "@/lib/storage";
 
 interface Opportunity {
   pair: string;
@@ -72,7 +73,7 @@ export default function Dashboard() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "none">("none");
   const [pinnedPairs, setPinnedPairs] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("pinnedArbPairs");
+      const saved = safeStorage.getItem("pinnedArbPairs");
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -88,7 +89,7 @@ export default function Dashboard() {
   const [notificationThreshold, setNotificationThreshold] = useState<number>(
     () => {
       if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("arbNotificationThreshold");
+        const saved = safeStorage.getItem("arbNotificationThreshold");
         return saved ? parseFloat(saved) : 1.2;
       }
       return 1.2;
@@ -106,9 +107,12 @@ export default function Dashboard() {
   // Track pairs we've already notified about to avoid spamming
   const notifiedPairs = useRef<Set<string>>(new Set());
 
-  // Use SWR to poll every 3 seconds
+  // Use SWR to poll every 3 seconds, but only if authenticated
   const { data, error, isLoading, isValidating } = useSWR<Opportunity[]>(
-    "/api/arbitrage",
+    typeof window !== "undefined" &&
+      safeStorage.getItem("traddy_authenticated") === "true"
+      ? "/api/arbitrage"
+      : null,
     fetcher,
     {
       refreshInterval: 3000,
@@ -118,10 +122,22 @@ export default function Dashboard() {
 
   // Request Notification Permission on mount
   useEffect(() => {
-    if ("Notification" in window) {
-      Notification.requestPermission().then((permission) => {
-        setNotificationPermission(permission);
-      });
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      typeof Notification.requestPermission === "function"
+    ) {
+      try {
+        Notification.requestPermission()
+          .then((permission) => {
+            setNotificationPermission(permission);
+          })
+          .catch((e) =>
+            console.warn("Notification permission request failed:", e),
+          );
+      } catch (e) {
+        console.warn("Notification.requestPermission threw an error:", e);
+      }
     }
   }, []);
 
@@ -132,17 +148,34 @@ export default function Dashboard() {
       setActiveNotification(opp);
 
       // 2. Play Sound
-      const audio = new Audio("/mixkit-positive-notification-951.wav");
-      audio.play().catch((e) => console.error("Audio playback failed:", e));
+      try {
+        const audio = new Audio("/mixkit-positive-notification-951.wav");
+        audio.play().catch((e) => console.log("Audio play blocked:", e));
+      } catch (e) {
+        console.warn("Audio initialization failed:", e);
+      }
 
       // 3. Update Title
-      document.title = "NEW NOTIFICATION 🚀";
+      if (typeof document !== "undefined") {
+        document.title = "NEW NOTIFICATION 🚀";
+      }
 
       // 4. Trigger Native Notification
-      if (notificationPermission === "granted") {
-        new Notification(`${opp.pair}: ${opp.gapPercent.toFixed(2)}% Gap! 🚀`, {
-          body: `Buy at: ${opp.buyExchange} | Sell at: ${opp.sellExchange}\nPrice Gap: ${opp.gapPercent.toFixed(2)}%`,
-        });
+      if (
+        notificationPermission === "granted" &&
+        typeof window !== "undefined" &&
+        "Notification" in window
+      ) {
+        try {
+          new Notification(
+            `${opp.pair}: ${opp.gapPercent.toFixed(2)}% Gap! 🚀`,
+            {
+              body: `Buy at: ${opp.buyExchange} | Sell at: ${opp.sellExchange}\nPrice Gap: ${opp.gapPercent.toFixed(2)}%`,
+            },
+          );
+        } catch (e) {
+          console.warn("Native Notification trigger failed:", e);
+        }
       }
 
       // 5. Reset after 5 seconds
@@ -154,11 +187,11 @@ export default function Dashboard() {
     [notificationPermission],
   );
 
-  // Save configurations to localStorage
+  // Save configurations to safeStorage
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem("pinnedArbPairs", JSON.stringify(pinnedPairs));
-      localStorage.setItem(
+      safeStorage.setItem("pinnedArbPairs", JSON.stringify(pinnedPairs));
+      safeStorage.setItem(
         "arbNotificationThreshold",
         notificationThreshold.toString(),
       );
@@ -423,7 +456,7 @@ export default function Dashboard() {
         {/* Data Table Container */}
         <div className="bg-[#0f0f13] border border-white/5 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl relative">
           {/* Table Header */}
-          <div className="grid grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-4 border-b border-white/5 text-xs font-semibold text-neutral-400 uppercase tracking-wider bg-white/2">
+          <div className="hidden md:grid grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-4 border-b border-white/5 text-xs font-semibold text-neutral-400 uppercase tracking-wider bg-white/[0.02]">
             <div className="col-span-2">Pair</div>
             <div className="col-span-1 text-right relative">
               <button
@@ -432,10 +465,10 @@ export default function Dashboard() {
                     prev === "none" ? "desc" : prev === "desc" ? "asc" : "none",
                   );
                 }}
-                className="hover:text-white transition-colors flex items-center justify-end w-full space-x-1"
+                className="hover:text-white transition-colors flex items-center justify-end w-full space-x-1 group"
               >
                 <span>Gap %</span>
-                <span className="flex flex-col -space-y-1">
+                <span className="flex flex-col -space-y-1 opacity-50 group-hover:opacity-100 transition-opacity">
                   <svg
                     viewBox="0 0 24 24"
                     className={`w-3 h-3 ${sortOrder === "asc" ? "text-crypto-accent" : "text-neutral-600"}`}
@@ -492,105 +525,131 @@ export default function Dashboard() {
               return (
                 <div
                   key={`${oppKey}-${idx}`}
-                  className={`grid grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-4 items-center hover:bg-white/2 transition-colors group ${isPinned ? "bg-white/3 border-l-2 border-crypto-accent" : ""}`}
+                  className={`flex flex-col md:grid md:grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-4 items-center hover:bg-white/[0.04] transition-all duration-300 border-l-2 ${isPinned ? "bg-white/[0.03] border-crypto-accent" : "border-transparent"} group`}
                 >
-                  {/* Pair Name */}
-                  <div className="col-span-2 flex items-center space-x-3">
-                    <button
-                      onClick={() => {
-                        setPinnedPairs((prev) =>
-                          isPinned
-                            ? prev.filter((p) => p !== oppKey)
-                            : [...prev, oppKey],
-                        );
-                      }}
-                      className={`transition-all duration-300 ${isPinned ? "text-yellow-400 scale-110" : "text-neutral-600 hover:text-neutral-400 opacity-0 group-hover:opacity-100"}`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill={isPinned ? "currentColor" : "none"}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="w-4 h-4"
+                  {/* Mobile Mobile Layout: Top Row */}
+                  <div className="flex items-center justify-between w-full md:w-auto md:col-span-2 gap-4">
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setPinnedPairs((prev) =>
+                            isPinned
+                              ? prev.filter((p) => p !== oppKey)
+                              : [...prev, oppKey],
+                          );
+                        }}
+                        className={`transition-all duration-300 ${isPinned ? "text-yellow-400 scale-110" : "text-neutral-600 hover:text-neutral-400 md:opacity-0 group-hover:opacity-100"}`}
                       >
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                      </svg>
-                    </button>
-                    <CoinIcon
-                      symbol={opp.pair}
-                      className="w-8 h-8 rounded-full"
-                    />
-                    <div>
-                      <div className="font-semibold text-neutral-200">
-                        {opp.pair}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill={isPinned ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-4 h-4"
+                        >
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                      </button>
+                      <CoinIcon
+                        symbol={opp.pair}
+                        className="w-8 h-8 md:w-9 md:h-9 rounded-full"
+                      />
+                      <div>
+                        <div className="font-bold text-neutral-100 md:text-lg tracking-tight">
+                          {opp.pair}
+                        </div>
+                        <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/5 w-fit">
+                          Spot
+                        </div>
                       </div>
-                      <div className="text-xs text-neutral-500 font-mono">
-                        Spot
-                      </div>
+                    </div>
+
+                    {/* Mobile Gap % Display */}
+                    <div className="md:hidden">
+                      <span
+                        className={`inline-block px-3 py-1.5 rounded-lg text-sm font-black border ${
+                          opp.gapPercent > 3
+                            ? "bg-crypto-accent/10 text-crypto-accent border-crypto-accent/20 animate-pulse-slow shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                            : opp.gapPercent > 1.5
+                              ? "bg-green-500/10 text-green-400 border-green-500/20"
+                              : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                        }`}
+                      >
+                        {opp.gapPercent.toFixed(2)}%
+                      </span>
                     </div>
                   </div>
 
-                  {/* Gap Percent */}
-                  <div className="col-span-1 text-right">
+                  {/* Desktop Gap % Display */}
+                  <div className="hidden md:block col-span-1 text-right">
                     <span
-                      className={`inline-block px-2.5 py-1 rounded-md text-sm font-bold backdrop-blur-sm ${
+                      className={`inline-block px-3 py-1 rounded-md text-sm font-black border transition-all duration-300 ${
                         opp.gapPercent > 3
-                          ? "bg-crypto-accent/10 text-crypto-accent shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                          ? "bg-crypto-accent/10 text-crypto-accent border-crypto-accent/20 shadow-[0_0_15px_rgba(16,185,129,0.15)] scale-105"
                           : opp.gapPercent > 1.5
-                            ? "bg-green-500/10 text-green-400"
-                            : "bg-yellow-500/10 text-yellow-400"
+                            ? "bg-green-500/10 text-green-400 border-green-500/20"
+                            : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
                       }`}
                     >
                       {opp.gapPercent.toFixed(2)}%
                     </span>
                   </div>
 
-                  {/* Buy Details */}
-                  <div className="col-span-2 lg:col-span-2 pl-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-neutral-300">
-                      {EXCHANGE_LOGOS[opp.buyExchange] && (
-                        <img
-                          src={EXCHANGE_LOGOS[opp.buyExchange]}
-                          alt=""
-                          className="w-5 h-5 rounded-md shadow-sm"
-                        />
-                      )}
-                      {opp.buyExchange}
+                  {/* Pricing Details */}
+                  <div className="grid grid-cols-2 md:contents w-full gap-4 pt-3 md:pt-0 border-t border-white/5 md:border-none">
+                    {/* Buy Details */}
+                    <div className="md:col-span-2 lg:col-span-2 md:pl-4">
+                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-tighter mb-1 md:hidden">
+                        Buy At
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+                        {EXCHANGE_LOGOS[opp.buyExchange] && (
+                          <img
+                            src={EXCHANGE_LOGOS[opp.buyExchange]}
+                            alt=""
+                            className="w-5 h-5 rounded-md shadow-sm opacity-90"
+                          />
+                        )}
+                        <span className="truncate">{opp.buyExchange}</span>
+                      </div>
+                      <div className="text-xs text-crypto-accent/80 font-mono mt-1 bg-crypto-accent/5 w-fit px-1.5 py-0.5 rounded border border-crypto-accent/10">
+                        $
+                        {opp.lowPrice < 1
+                          ? opp.lowPrice.toFixed(6)
+                          : opp.lowPrice.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                      </div>
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono mt-0.5">
-                      $
-                      {opp.lowPrice < 1
-                        ? opp.lowPrice.toFixed(6)
-                        : opp.lowPrice.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                          })}
-                    </div>
-                  </div>
 
-                  {/* Sell Details */}
-                  <div className="col-span-1 lg:col-span-3 pl-4 hidden md:block">
-                    <div className="flex items-center gap-2 text-sm font-medium text-neutral-300">
-                      {EXCHANGE_LOGOS[opp.sellExchange] && (
-                        <img
-                          src={EXCHANGE_LOGOS[opp.sellExchange]}
-                          alt=""
-                          className="w-5 h-5 rounded-md shadow-sm"
-                        />
-                      )}
-                      {opp.sellExchange}
-                    </div>
-                    <div className="text-xs text-neutral-500 font-mono mt-0.5">
-                      $
-                      {opp.highPrice < 1
-                        ? opp.highPrice.toFixed(6)
-                        : opp.highPrice.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                          })}
+                    {/* Sell Details */}
+                    <div className="md:col-span-1 lg:col-span-3 md:pl-4">
+                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-tighter mb-1 md:hidden">
+                        Sell At
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+                        {EXCHANGE_LOGOS[opp.sellExchange] && (
+                          <img
+                            src={EXCHANGE_LOGOS[opp.sellExchange]}
+                            alt=""
+                            className="w-5 h-5 rounded-md shadow-sm opacity-90"
+                          />
+                        )}
+                        <span className="truncate">{opp.sellExchange}</span>
+                      </div>
+                      <div className="text-xs text-red-400/80 font-mono mt-1 bg-red-400/5 w-fit px-1.5 py-0.5 rounded border border-red-400/10">
+                        $
+                        {opp.highPrice < 1
+                          ? opp.highPrice.toFixed(6)
+                          : opp.highPrice.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4,
+                            })}
+                      </div>
                     </div>
                   </div>
                 </div>
