@@ -6,6 +6,7 @@ import {
   useState,
   useSyncExternalStore,
   useMemo,
+  useCallback,
 } from "react";
 import useSWR from "swr";
 
@@ -29,6 +30,8 @@ const fetcher = (url: string) =>
 export default function Dashboard() {
   const [notificationPermission, setNotificationPermission] =
     useState<string>("default");
+  const [activeNotification, setActiveNotification] =
+    useState<Opportunity | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "none">("none");
   const [pinnedPairs, setPinnedPairs] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
@@ -38,6 +41,31 @@ export default function Dashboard() {
           return JSON.parse(saved);
         } catch (e) {
           console.error("Failed to parse pinned pairs", e);
+          return [];
+        }
+      }
+    }
+    return [];
+  });
+
+  const [notificationThreshold, setNotificationThreshold] = useState<number>(
+    () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("arbNotificationThreshold");
+        return saved ? parseFloat(saved) : 1.2;
+      }
+      return 1.2;
+    },
+  );
+
+  const [notifiablePairs, setNotifiablePairs] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("notifiableArbPairs");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse notifiable pairs", e);
           return [];
         }
       }
@@ -75,12 +103,49 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Save pinned pairs to localStorage
+  // Play notification sound and manage title
+  const triggerNotification = useCallback(
+    (opp: Opportunity) => {
+      // 1. Show Visual Notification
+      setActiveNotification(opp);
+
+      // 2. Play Sound
+      const audio = new Audio("/mixkit-positive-notification-951.wav");
+      audio.play().catch((e) => console.error("Audio playback failed:", e));
+
+      // 3. Update Title
+      document.title = "NEW NOTIFICATION 🚀";
+
+      // 4. Trigger Native Notification
+      if (notificationPermission === "granted") {
+        new Notification(`${opp.pair}: ${opp.gapPercent.toFixed(2)}% Gap! 🚀`, {
+          body: `Buy at: ${opp.buyExchange} | Sell at: ${opp.sellExchange}\nPrice Gap: ${opp.gapPercent.toFixed(2)}%`,
+        });
+      }
+
+      // 5. Reset after 5 seconds
+      setTimeout(() => {
+        setActiveNotification(null);
+        document.title = "Traddy Scanner";
+      }, 5000);
+    },
+    [notificationPermission],
+  );
+
+  // Save configurations to localStorage
   useEffect(() => {
     if (isClient) {
       localStorage.setItem("pinnedArbPairs", JSON.stringify(pinnedPairs));
+      localStorage.setItem(
+        "arbNotificationThreshold",
+        notificationThreshold.toString(),
+      );
+      localStorage.setItem(
+        "notifiableArbPairs",
+        JSON.stringify(notifiablePairs),
+      );
     }
-  }, [pinnedPairs, isClient]);
+  }, [pinnedPairs, notificationThreshold, notifiablePairs, isClient]);
 
   // Process data for sorting and pinning
   const processedData = useMemo(() => {
@@ -118,39 +183,36 @@ export default function Dashboard() {
   useEffect(() => {
     if (!data || !Array.isArray(data)) return;
 
-    console.log("Checking for notifications...", {
-      dataCount: data.length,
-      permission: notificationPermission,
-      alreadyNotified: Array.from(notifiedPairs.current),
-    });
-
     if (notificationPermission !== "granted") return;
 
     data.forEach((opp) => {
-      // Find opportunities with gap more than 1.20%
-      if (opp.gapPercent > 1.2) {
-        const oppKey = `${opp.pair}-${opp.buyExchange}-${opp.sellExchange}`;
+      const oppKey = `${opp.pair}-${opp.buyExchange}-${opp.sellExchange}`;
+
+      // Check if this pair is toggled for notifications and meets the user's threshold
+      const isNotifiable = notifiablePairs.includes(oppKey);
+
+      if (isNotifiable && opp.gapPercent >= notificationThreshold) {
         // Only notify if we haven't already notified about this exact pair recently
         if (!notifiedPairs.current.has(oppKey)) {
           console.log(
-            `Triggering notification for ${oppKey}: ${opp.gapPercent}%`,
+            `Triggering notification for ${oppKey}: ${opp.gapPercent}% (Threshold: ${notificationThreshold}%)`,
           );
           notifiedPairs.current.add(oppKey);
-
-          new Notification(
-            `${opp.pair}: ${opp.gapPercent.toFixed(2)}% Gap! 🚀`,
-            {
-              body: `Exchange: ${opp.buyExchange} → ${opp.sellExchange}\nGap: ${opp.gapPercent.toFixed(2)}%`,
-            },
-          );
+          triggerNotification(opp);
         }
       }
     });
 
-    // Cleanup old pairs that are no longer > 1.20% gap so we can notify again later if they return
+    // Cleanup old pairs that no longer meet notifications criteria so we can notify again later if they return
     const currentHighGapPairs = new Set(
       data
-        .filter((op) => op.gapPercent > 1.2)
+        .filter((op) => {
+          const key = `${op.pair}-${op.buyExchange}-${op.sellExchange}`;
+          return (
+            notifiablePairs.includes(key) &&
+            op.gapPercent >= notificationThreshold
+          );
+        })
         .map((op) => `${op.pair}-${op.buyExchange}-${op.sellExchange}`),
     );
     for (const key of notifiedPairs.current) {
@@ -158,7 +220,13 @@ export default function Dashboard() {
         notifiedPairs.current.delete(key);
       }
     }
-  }, [data, notificationPermission]);
+  }, [
+    data,
+    notificationPermission,
+    notificationThreshold,
+    notifiablePairs,
+    triggerNotification,
+  ]);
 
   if (!isClient) {
     return null; // or a very basic skeleton
@@ -168,6 +236,86 @@ export default function Dashboard() {
     <div className="min-h-screen bg-neutral-950 text-neutral-100 selection:bg-neutral-800">
       {/* Glow Effect Background */}
       <div className="absolute top-0 inset-x-0 h-96 bg-linear-to-b from-crypto-accent/10 to-transparent pointer-events-none" />
+
+      {/* Visual Notification Overlay */}
+      {activeNotification && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-[#1a1a24]/90 backdrop-blur-xl border border-crypto-accent/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.2)] overflow-hidden">
+            <div className="flex items-center p-5 gap-4">
+              <div className="w-12 h-12 rounded-xl bg-crypto-accent/20 flex items-center justify-center animate-pulse">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-6 h-6 text-crypto-accent"
+                >
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-white font-bold text-lg truncate flex items-center gap-2">
+                    {activeNotification.pair} Optimization
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-crypto-accent/20 text-crypto-accent uppercase tracking-wider">
+                      Live
+                    </span>
+                  </h3>
+                  <span className="text-crypto-accent font-black text-xl tabular-nums">
+                    +{activeNotification.gapPercent.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-neutral-400 text-sm font-medium">
+                  <span className="text-white bg-white/5 px-2 py-0.5 rounded text-xs border border-white/5">
+                    {activeNotification.buyExchange}
+                  </span>
+                  <svg
+                    className="w-3 h-3 text-neutral-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                  <span className="text-white bg-white/5 px-2 py-0.5 rounded text-xs border border-white/5">
+                    {activeNotification.sellExchange}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveNotification(null)}
+                className="p-2 hover:bg-white/5 rounded-full transition-colors text-neutral-500 hover:text-white"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="h-1 bg-neutral-800 w-full overflow-hidden">
+              <div className="h-full bg-crypto-accent animate-shrink-width duration-5000 ease-linear" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
         {/* Header Section */}
@@ -182,30 +330,37 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+              <label
+                htmlFor="threshold"
+                className="text-xs font-semibold text-neutral-400 uppercase tracking-tighter"
+              >
+                GAP % Alert:
+              </label>
+              <input
+                id="threshold"
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={notificationThreshold}
+                onChange={(e) =>
+                  setNotificationThreshold(parseFloat(e.target.value) || 0)
+                }
+                className="w-16 bg-transparent border-none focus:ring-0 text-sm font-bold text-crypto-accent p-0"
+              />
+            </div>
+
             <button
               onClick={() => {
-                if ("Notification" in window) {
-                  if (Notification.permission === "granted") {
-                    new Notification("Test Notification 🔔", {
-                      body: "If you see this, notifications are working correctly!",
-                    });
-                  } else {
-                    Notification.requestPermission().then((p) => {
-                      setNotificationPermission(p);
-                      if (p === "granted") {
-                        new Notification("Notification Granted! ✅", {
-                          body: "You will now receive arbitrage alerts.",
-                        });
-                      } else {
-                        alert(
-                          `Notification permission is: ${p}. Please enable them in your browser settings.`,
-                        );
-                      }
-                    });
-                  }
-                } else {
-                  alert("Your browser does not support notifications.");
-                }
+                const testOpp: Opportunity = {
+                  pair: "BTC/USDT",
+                  gapPercent: 1.5,
+                  buyExchange: "Binance",
+                  lowPrice: 65000,
+                  sellExchange: "KuCoin",
+                  highPrice: 66000,
+                };
+                triggerNotification(testOpp);
               }}
               className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold rounded-full transition-all"
             >
@@ -412,9 +567,38 @@ export default function Dashboard() {
                   </div>
 
                   {/* Action */}
-                  <div className="col-span-1 text-right hidden lg:block opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-medium py-1.5 px-4 rounded-lg transition-colors">
-                      Trade
+                  <div className="col-span-1 text-right flex items-center justify-end space-x-2">
+                    <button
+                      onClick={() => {
+                        setNotifiablePairs((prev) =>
+                          notifiablePairs.includes(oppKey)
+                            ? prev.filter((p) => p !== oppKey)
+                            : [...prev, oppKey],
+                        );
+                      }}
+                      className={`p-2 rounded-lg transition-all duration-300 ${
+                        notifiablePairs.includes(oppKey)
+                          ? "text-crypto-accent bg-crypto-accent/10 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                          : "text-neutral-600 hover:text-neutral-400 bg-white/5 hover:bg-white/10 opacity-0 group-hover:opacity-100"
+                      }`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill={
+                          notifiablePairs.includes(oppKey)
+                            ? "currentColor"
+                            : "none"
+                        }
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="w-4 h-4"
+                      >
+                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                      </svg>
                     </button>
                   </div>
                 </div>

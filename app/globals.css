@@ -19,6 +19,16 @@
   --color-crypto-accent-hover: #059669;
   --color-crypto-buy: #3b82f6;
   --color-crypto-sell: #ef4444;
+
+  @keyframes shrink-width {
+    from {
+      width: 100%;
+    }
+    to {
+      width: 0%;
+    }
+  }
+  --animate-shrink-width: shrink-width;
 }
 
 body {
