@@ -19,6 +19,43 @@ interface Opportunity {
   highPrice: number;
 }
 
+const EXCHANGE_LOGOS: Record<string, string> = {
+  Binance: "https://www.google.com/s2/favicons?domain=binance.com&sz=64",
+  KuCoin: "https://www.google.com/s2/favicons?domain=kucoin.com&sz=64",
+  Bybit: "https://www.google.com/s2/favicons?domain=bybit.com&sz=64",
+};
+
+function CoinIcon({
+  symbol,
+  className = "w-8 h-8 rounded-full",
+}: {
+  symbol: string;
+  className?: string;
+}) {
+  const [error, setError] = useState(false);
+  const baseSymbol = symbol.split("/")[0].toLowerCase();
+  const iconUrl = `https://coinicons-api.vercel.app/api/icon/${baseSymbol}`;
+
+  if (error) {
+    return (
+      <div
+        className={`${className} bg-linear-to-tr from-neutral-800 to-neutral-700 flex items-center justify-center font-bold text-[10px] text-white shadow-inner uppercase`}
+      >
+        {symbol.split("/")[0].substring(0, 3)}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={iconUrl}
+      alt={symbol}
+      className={`${className} object-contain bg-neutral-800/50 p-0.5`}
+      onError={() => setError(true)}
+    />
+  );
+}
+
 const fetcher = (url: string) =>
   fetch(url).then((res) => {
     if (!res.ok) {
@@ -57,21 +94,6 @@ export default function Dashboard() {
       return 1.2;
     },
   );
-
-  const [notifiablePairs, setNotifiablePairs] = useState<string[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("notifiableArbPairs");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Failed to parse notifiable pairs", e);
-          return [];
-        }
-      }
-    }
-    return [];
-  });
 
   // Use useSyncExternalStore to safely check if we are on the client
   // without triggering a synchronous state update in an effect.
@@ -140,12 +162,8 @@ export default function Dashboard() {
         "arbNotificationThreshold",
         notificationThreshold.toString(),
       );
-      localStorage.setItem(
-        "notifiableArbPairs",
-        JSON.stringify(notifiablePairs),
-      );
     }
-  }, [pinnedPairs, notificationThreshold, notifiablePairs, isClient]);
+  }, [pinnedPairs, notificationThreshold, isClient]);
 
   // Process data for sorting and pinning
   const processedData = useMemo(() => {
@@ -188,10 +206,8 @@ export default function Dashboard() {
     data.forEach((opp) => {
       const oppKey = `${opp.pair}-${opp.buyExchange}-${opp.sellExchange}`;
 
-      // Check if this pair is toggled for notifications and meets the user's threshold
-      const isNotifiable = notifiablePairs.includes(oppKey);
-
-      if (isNotifiable && opp.gapPercent >= notificationThreshold) {
+      // Notify for any pair that meets the user's threshold
+      if (opp.gapPercent >= notificationThreshold) {
         // Only notify if we haven't already notified about this exact pair recently
         if (!notifiedPairs.current.has(oppKey)) {
           console.log(
@@ -206,13 +222,7 @@ export default function Dashboard() {
     // Cleanup old pairs that no longer meet notifications criteria so we can notify again later if they return
     const currentHighGapPairs = new Set(
       data
-        .filter((op) => {
-          const key = `${op.pair}-${op.buyExchange}-${op.sellExchange}`;
-          return (
-            notifiablePairs.includes(key) &&
-            op.gapPercent >= notificationThreshold
-          );
-        })
+        .filter((op) => op.gapPercent >= notificationThreshold)
         .map((op) => `${op.pair}-${op.buyExchange}-${op.sellExchange}`),
     );
     for (const key of notifiedPairs.current) {
@@ -224,7 +234,6 @@ export default function Dashboard() {
     data,
     notificationPermission,
     notificationThreshold,
-    notifiablePairs,
     triggerNotification,
   ]);
 
@@ -242,20 +251,11 @@ export default function Dashboard() {
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="bg-[#1a1a24]/90 backdrop-blur-xl border border-crypto-accent/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.2)] overflow-hidden">
             <div className="flex items-center p-5 gap-4">
-              <div className="w-12 h-12 rounded-xl bg-crypto-accent/20 flex items-center justify-center animate-pulse">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-6 h-6 text-crypto-accent"
-                >
-                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                  <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                </svg>
+              <div className="w-12 h-12 rounded-xl bg-crypto-accent/10 flex items-center justify-center">
+                <CoinIcon
+                  symbol={activeNotification.pair}
+                  className="w-10 h-10 rounded-lg"
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
@@ -270,7 +270,14 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-neutral-400 text-sm font-medium">
-                  <span className="text-white bg-white/5 px-2 py-0.5 rounded text-xs border border-white/5">
+                  <span className="flex items-center gap-1.5 text-white bg-white/5 px-2 py-1 rounded text-xs border border-white/5">
+                    {EXCHANGE_LOGOS[activeNotification.buyExchange] && (
+                      <img
+                        src={EXCHANGE_LOGOS[activeNotification.buyExchange]}
+                        alt=""
+                        className="w-3.5 h-3.5 rounded-sm"
+                      />
+                    )}
                     {activeNotification.buyExchange}
                   </span>
                   <svg
@@ -286,7 +293,14 @@ export default function Dashboard() {
                       d="M14 5l7 7m0 0l-7 7m7-7H3"
                     />
                   </svg>
-                  <span className="text-white bg-white/5 px-2 py-0.5 rounded text-xs border border-white/5">
+                  <span className="flex items-center gap-1.5 text-white bg-white/5 px-2 py-1 rounded text-xs border border-white/5">
+                    {EXCHANGE_LOGOS[activeNotification.sellExchange] && (
+                      <img
+                        src={EXCHANGE_LOGOS[activeNotification.sellExchange]}
+                        alt=""
+                        className="w-3.5 h-3.5 rounded-sm"
+                      />
+                    )}
                     {activeNotification.sellExchange}
                   </span>
                 </div>
@@ -325,7 +339,7 @@ export default function Dashboard() {
               Traddy Scanner
             </h1>
             <p className="text-neutral-500 mt-1 text-sm font-medium">
-              Real-time Spot Arbitrage Dashboard
+              By Zohaib Yousaf
             </p>
           </div>
 
@@ -440,10 +454,9 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="col-span-2 lg:col-span-2 pl-4">Buy At</div>
-            <div className="col-span-1 lg:col-span-2 pl-4 hidden md:block">
+            <div className="col-span-1 lg:col-span-3 pl-4 hidden md:block">
               Sell At
             </div>
-            <div className="col-span-1 text-right hidden lg:block">Action</div>
           </div>
 
           {/* Table Body */}
@@ -506,9 +519,10 @@ export default function Dashboard() {
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
                     </button>
-                    <div className="w-8 h-8 rounded-full bg-linear-to-tr from-neutral-800 to-neutral-700 flex items-center justify-center font-bold text-xs text-white shadow-inner">
-                      {opp.pair.split("/")[0].substring(0, 3)}
-                    </div>
+                    <CoinIcon
+                      symbol={opp.pair}
+                      className="w-8 h-8 rounded-full"
+                    />
                     <div>
                       <div className="font-semibold text-neutral-200">
                         {opp.pair}
@@ -536,7 +550,14 @@ export default function Dashboard() {
 
                   {/* Buy Details */}
                   <div className="col-span-2 lg:col-span-2 pl-4">
-                    <div className="text-sm font-medium text-neutral-300">
+                    <div className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+                      {EXCHANGE_LOGOS[opp.buyExchange] && (
+                        <img
+                          src={EXCHANGE_LOGOS[opp.buyExchange]}
+                          alt=""
+                          className="w-5 h-5 rounded-md shadow-sm"
+                        />
+                      )}
                       {opp.buyExchange}
                     </div>
                     <div className="text-xs text-neutral-500 font-mono mt-0.5">
@@ -551,8 +572,15 @@ export default function Dashboard() {
                   </div>
 
                   {/* Sell Details */}
-                  <div className="col-span-1 lg:col-span-2 pl-4 hidden md:block">
-                    <div className="text-sm font-medium text-neutral-300">
+                  <div className="col-span-1 lg:col-span-3 pl-4 hidden md:block">
+                    <div className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+                      {EXCHANGE_LOGOS[opp.sellExchange] && (
+                        <img
+                          src={EXCHANGE_LOGOS[opp.sellExchange]}
+                          alt=""
+                          className="w-5 h-5 rounded-md shadow-sm"
+                        />
+                      )}
                       {opp.sellExchange}
                     </div>
                     <div className="text-xs text-neutral-500 font-mono mt-0.5">
@@ -564,42 +592,6 @@ export default function Dashboard() {
                             maximumFractionDigits: 4,
                           })}
                     </div>
-                  </div>
-
-                  {/* Action */}
-                  <div className="col-span-1 text-right flex items-center justify-end space-x-2">
-                    <button
-                      onClick={() => {
-                        setNotifiablePairs((prev) =>
-                          notifiablePairs.includes(oppKey)
-                            ? prev.filter((p) => p !== oppKey)
-                            : [...prev, oppKey],
-                        );
-                      }}
-                      className={`p-2 rounded-lg transition-all duration-300 ${
-                        notifiablePairs.includes(oppKey)
-                          ? "text-crypto-accent bg-crypto-accent/10 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-                          : "text-neutral-600 hover:text-neutral-400 bg-white/5 hover:bg-white/10 opacity-0 group-hover:opacity-100"
-                      }`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill={
-                          notifiablePairs.includes(oppKey)
-                            ? "currentColor"
-                            : "none"
-                        }
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="w-4 h-4"
-                      >
-                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                      </svg>
-                    </button>
                   </div>
                 </div>
               );
