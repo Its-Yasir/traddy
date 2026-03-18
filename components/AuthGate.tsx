@@ -10,16 +10,37 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const authStatus = safeStorage.getItem("traddy_authenticated");
-      if (authStatus === "true") {
-        setIsAuthenticated(true);
+    const checkAuth = async () => {
+      try {
+        const savedPassword = safeStorage.getItem("traddy_password");
+        if (!savedPassword) {
+          setIsAuthenticated(false);
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch("/api/auth/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: savedPassword }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          setIsAuthenticated(true);
+          setPassword(savedPassword);
+        } else {
+          setIsAuthenticated(false);
+          safeStorage.removeItem("traddy_password");
+        }
+      } catch (e) {
+        console.error("AuthGate initialization error:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.error("AuthGate initialization error:", e);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    checkAuth();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,7 +58,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
       if (data.success) {
         setIsAuthenticated(true);
-        safeStorage.setItem("traddy_authenticated", "true");
+        safeStorage.setItem("traddy_password", password);
         window.location.reload(); // Reload to trigger SWR fetch
       } else {
         setError(data.message || "Invalid password");
