@@ -90,9 +90,9 @@ export default function Dashboard() {
     () => {
       if (typeof window !== "undefined") {
         const saved = safeStorage.getItem("arbNotificationThreshold");
-        return saved ? parseFloat(saved) : 1.2;
+        return saved ? parseFloat(saved) : 4;
       }
-      return 1.2;
+      return 4;
     },
   );
 
