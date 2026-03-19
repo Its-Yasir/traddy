@@ -124,7 +124,7 @@ export async function GET() {
             const minP = Math.min(p1, p2);
             const gapPercent = (diff / minP) * 100;
 
-            if (gapPercent >= 0.7 && gapPercent <= 10.0) {
+            if (gapPercent >= 0.7) {
               const buyEx = p1 < p2 ? ex1 : ex2;
               const sellEx = p1 < p2 ? ex2 : ex1;
               const lowP = p1 < p2 ? p1 : p2;

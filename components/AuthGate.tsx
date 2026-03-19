@@ -29,6 +29,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
         if (data.success) {
           setIsAuthenticated(true);
           setPassword(savedPassword);
+          safeStorage.setItem("traddy_authenticated", "true");
         } else {
           setIsAuthenticated(false);
           safeStorage.removeItem("traddy_password");
@@ -59,6 +60,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       if (data.success) {
         setIsAuthenticated(true);
         safeStorage.setItem("traddy_password", password);
+        safeStorage.setItem("traddy_authenticated", "true");
         window.location.reload(); // Reload to trigger SWR fetch
       } else {
         setError(data.message || "Invalid password");

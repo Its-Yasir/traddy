@@ -109,8 +109,7 @@ export default function Dashboard() {
 
   // Use SWR to poll every 3 seconds, but only if authenticated
   const { data, error, isLoading, isValidating } = useSWR<Opportunity[]>(
-    typeof window !== "undefined" &&
-      safeStorage.getItem("traddy_authenticated") === "true"
+    typeof window !== "undefined" && safeStorage.getItem("traddy_password")
       ? "/api/arbitrage"
       : null,
     fetcher,
