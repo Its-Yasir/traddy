@@ -124,7 +124,7 @@ export async function GET() {
             const minP = Math.min(p1, p2);
             const gapPercent = (diff / minP) * 100;
 
-            if (gapPercent >= 0.7) {
+            if (gapPercent >= 0.7 && gapPercent <= 20.0) {
               const buyEx = p1 < p2 ? ex1 : ex2;
               const sellEx = p1 < p2 ? ex2 : ex1;
               const lowP = p1 < p2 ? p1 : p2;
@@ -138,6 +138,11 @@ export async function GET() {
                 sellExchange: sellEx,
                 highPrice: highP,
               });
+            } else if (gapPercent > 10.0) {
+              // Log extreme gaps to help identify bad data or unit mismatches (e.g., SAT vs BTC)
+              console.warn(
+                `[Arbitrage] Extreme gap detected for ${sym}: ${gapPercent.toFixed(2)}% (Prices: ${p1} on ${ex1}, ${p2} on ${ex2})`,
+              );
             }
           }
         }
