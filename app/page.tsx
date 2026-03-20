@@ -21,6 +21,7 @@ interface Opportunity {
   highPrice: number;
   sellVolume?: number;
   volumeDiff?: number;
+  marketCap?: number | null;
 }
 
 const EXCHANGE_LOGOS: Record<string, string> = {
@@ -627,11 +628,6 @@ export default function Dashboard() {
                               maximumFractionDigits: 4,
                             })}
                       </div>
-                      {opp.buyVolume && (
-                        <div className="text-[10px] text-neutral-500 font-bold mt-1.5 uppercase tracking-tighter">
-                          Vol: ${Math.round(opp.buyVolume / 1000)}k
-                        </div>
-                      )}
                     </div>
 
                     {/* Sell Details */}
@@ -658,11 +654,6 @@ export default function Dashboard() {
                               maximumFractionDigits: 4,
                             })}
                       </div>
-                      {opp.sellVolume && (
-                        <div className="text-[10px] text-neutral-500 font-bold mt-1.5 uppercase tracking-tighter">
-                          Vol: ${Math.round(opp.sellVolume / 1000)}k
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -176,6 +176,55 @@ export async function GET() {
     opportunities.sort((a, b) => b.gapPercent - a.gapPercent);
     const topOpportunities = opportunities.slice(0, 20);
 
+    // Fetch Market Cap data from CoinGecko for the top opportunities
+    try {
+      interface CoinGeckoCoin {
+        symbol: string;
+        market_cap: number;
+      }
+      // Get Top 250 coins from CoinGecko to build a symbol -> marketCap mapping
+      // We use a public endpoint that doesn't strictly require a key for low volume
+      const cgRes = await fetch(
+        "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1",
+        { next: { revalidate: 3600 } }, // Cache for 1 hour
+      );
+
+      if (cgRes.ok) {
+        const cgData = (await cgRes.json()) as CoinGeckoCoin[];
+        const marketCapMap: Record<string, number> = {};
+        cgData.forEach((coin) => {
+          marketCapMap[coin.symbol.toUpperCase()] = coin.market_cap;
+        });
+
+        // Special case for WAXP if not in top 250 (it's around ~400)
+        if (!marketCapMap["WAXP"]) {
+          const waxpRes = await fetch(
+            "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=wax",
+          );
+          if (waxpRes.ok) {
+            const waxpData = (await waxpRes.json()) as CoinGeckoCoin[];
+            if (waxpData[0]) {
+              // Map both 'WAX' and 'WAXP' to the same data
+              marketCapMap["WAX"] = waxpData[0].market_cap;
+              marketCapMap["WAXP"] = waxpData[0].market_cap;
+            }
+          }
+        }
+
+        topOpportunities.forEach((opp: any) => {
+          const base = (opp.pair as string).split("/")[0].toUpperCase();
+          // Handle common discrepancies (e.g. WAXP on exchanges is WAX on CoinGecko)
+          let marketCap = marketCapMap[base];
+          if (marketCap === undefined && base === "WAXP")
+            marketCap = marketCapMap["WAX"];
+
+          opp.marketCap = marketCap || null;
+        });
+      }
+    } catch (cgError) {
+      console.error("CoinGecko fetch error:", cgError);
+    }
+
     return NextResponse.json(topOpportunities);
   } catch (error) {
     console.error("Arbitrage fetch error:", error);
