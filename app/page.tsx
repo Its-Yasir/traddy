@@ -16,8 +16,10 @@ interface Opportunity {
   gapPercent: number;
   buyExchange: string;
   lowPrice: number;
+  buyVolume?: number;
   sellExchange: string;
   highPrice: number;
+  sellVolume?: number;
   volumeDiff?: number;
 }
 
@@ -581,11 +583,6 @@ export default function Dashboard() {
                       >
                         {opp.gapPercent.toFixed(2)}%
                       </span>
-                      {opp.volumeDiff && (
-                        <span className="text-[9px] text-neutral-500 font-bold mt-1">
-                          Vol Diff: ${Math.round(opp.volumeDiff / 1000)}k
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -602,11 +599,6 @@ export default function Dashboard() {
                     >
                       {opp.gapPercent.toFixed(2)}%
                     </span>
-                    {opp.volumeDiff && (
-                      <div className="text-[9px] text-neutral-500 font-bold mt-1 uppercase tracking-tighter">
-                        Diff: ${Math.round(opp.volumeDiff / 1000)}k
-                      </div>
-                    )}
                   </div>
 
                   {/* Pricing Details */}
@@ -635,6 +627,11 @@ export default function Dashboard() {
                               maximumFractionDigits: 4,
                             })}
                       </div>
+                      {opp.buyVolume && (
+                        <div className="text-[10px] text-neutral-500 font-bold mt-1.5 uppercase tracking-tighter">
+                          Vol: ${Math.round(opp.buyVolume / 1000)}k
+                        </div>
+                      )}
                     </div>
 
                     {/* Sell Details */}
@@ -661,6 +658,11 @@ export default function Dashboard() {
                               maximumFractionDigits: 4,
                             })}
                       </div>
+                      {opp.sellVolume && (
+                        <div className="text-[10px] text-neutral-500 font-bold mt-1.5 uppercase tracking-tighter">
+                          Vol: ${Math.round(opp.sellVolume / 1000)}k
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

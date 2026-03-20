@@ -147,14 +147,18 @@ export async function GET() {
               const sellEx = p1 < p2 ? ex2 : ex1;
               const lowP = p1 < p2 ? p1 : p2;
               const highP = p1 < p2 ? p2 : p1;
+              const buyVol = p1 < p2 ? v1 : v2;
+              const sellVol = p1 < p2 ? v2 : v1;
 
               opportunities.push({
                 pair: sym,
                 gapPercent: gapPercent,
                 buyExchange: buyEx,
                 lowPrice: lowP,
+                buyVolume: buyVol,
                 sellExchange: sellEx,
                 highPrice: highP,
+                sellVolume: sellVol,
                 volumeDiff: volumeDiff,
               });
             } else if (gapPercent > 10.0) {
