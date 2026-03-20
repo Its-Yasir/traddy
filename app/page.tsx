@@ -18,6 +18,7 @@ interface Opportunity {
   lowPrice: number;
   sellExchange: string;
   highPrice: number;
+  volumeDiff?: number;
 }
 
 const EXCHANGE_LOGOS: Record<string, string> = {
@@ -405,6 +406,7 @@ export default function Dashboard() {
                   lowPrice: 65000,
                   sellExchange: "KuCoin",
                   highPrice: 66000,
+                  volumeDiff: 150000,
                 };
                 triggerNotification(testOpp);
               }}
@@ -567,7 +569,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Mobile Gap % Display */}
-                    <div className="md:hidden">
+                    <div className="flex flex-col items-end md:hidden">
                       <span
                         className={`inline-block px-3 py-1.5 rounded-lg text-sm font-black border ${
                           opp.gapPercent > 3
@@ -579,6 +581,11 @@ export default function Dashboard() {
                       >
                         {opp.gapPercent.toFixed(2)}%
                       </span>
+                      {opp.volumeDiff && (
+                        <span className="text-[9px] text-neutral-500 font-bold mt-1">
+                          Vol Diff: ${Math.round(opp.volumeDiff / 1000)}k
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -595,6 +602,11 @@ export default function Dashboard() {
                     >
                       {opp.gapPercent.toFixed(2)}%
                     </span>
+                    {opp.volumeDiff && (
+                      <div className="text-[9px] text-neutral-500 font-bold mt-1 uppercase tracking-tighter">
+                        Diff: ${Math.round(opp.volumeDiff / 1000)}k
+                      </div>
+                    )}
                   </div>
 
                   {/* Pricing Details */}

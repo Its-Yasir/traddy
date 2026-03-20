@@ -58,7 +58,10 @@ export async function GET() {
       "CLOSE",
     ];
 
-    const safeData: Record<string, Record<string, number>> = {};
+    const safeData: Record<
+      string,
+      Record<string, { price: number; volume: number }>
+    > = {};
     // Initialize safeData with empty objects for all exchanges to prevent TypeErrors later
     for (const ex of exchanges) {
       safeData[ex.name] = {};
@@ -90,7 +93,10 @@ export async function GET() {
           );
 
           if (isActive && !hasBadStatus) {
-            safeData[ex.name][cleanSymbol] = t.last;
+            safeData[ex.name][cleanSymbol] = {
+              price: t.last,
+              volume: t.quoteVolume || 0,
+            };
           }
         }
       }
@@ -116,15 +122,27 @@ export async function GET() {
         );
 
         for (const sym of commonSymbols) {
-          const p1 = ex1Data[sym];
-          const p2 = ex2Data[sym];
+          const d1 = ex1Data[sym];
+          const d2 = ex2Data[sym];
+
+          const p1 = d1.price;
+          const p2 = d2.price;
+          const v1 = d1.volume;
+          const v2 = d2.volume;
 
           if (p1 > 0 && p2 > 0) {
             const diff = Math.abs(p1 - p2);
             const minP = Math.min(p1, p2);
             const gapPercent = (diff / minP) * 100;
 
-            if (gapPercent >= 0.7 && gapPercent <= 20.0) {
+            // Calculate volume difference (as "market cap difference" per user terminology)
+            const volumeDiff = Math.abs(v1 - v2);
+
+            if (
+              gapPercent >= 0.7 &&
+              gapPercent <= 20.0 &&
+              volumeDiff > 100000
+            ) {
               const buyEx = p1 < p2 ? ex1 : ex2;
               const sellEx = p1 < p2 ? ex2 : ex1;
               const lowP = p1 < p2 ? p1 : p2;
@@ -137,6 +155,7 @@ export async function GET() {
                 lowPrice: lowP,
                 sellExchange: sellEx,
                 highPrice: highP,
+                volumeDiff: volumeDiff,
               });
             } else if (gapPercent > 10.0) {
               // Log extreme gaps to help identify bad data or unit mismatches (e.g., SAT vs BTC)
