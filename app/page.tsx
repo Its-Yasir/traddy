@@ -75,14 +75,14 @@ export default function Dashboard() {
   const [activeNotification, setActiveNotification] =
     useState<Opportunity | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "none">("none");
-  const [pinnedPairs, setPinnedPairs] = useState<string[]>(() => {
+  const [pinnedOpps, setPinnedOpps] = useState<Opportunity[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = safeStorage.getItem("pinnedArbPairs");
+      const saved = safeStorage.getItem("pinnedArbOpps");
       if (saved) {
         try {
           return JSON.parse(saved);
         } catch (e) {
-          console.error("Failed to parse pinned pairs", e);
+          console.error("Failed to parse pinned opportunities", e);
           return [];
         }
       }
@@ -193,28 +193,44 @@ export default function Dashboard() {
   // Save configurations to safeStorage
   useEffect(() => {
     if (isClient) {
-      safeStorage.setItem("pinnedArbPairs", JSON.stringify(pinnedPairs));
+      safeStorage.setItem("pinnedArbOpps", JSON.stringify(pinnedOpps));
       safeStorage.setItem(
         "arbNotificationThreshold",
         notificationThreshold.toString(),
       );
     }
-  }, [pinnedPairs, notificationThreshold, isClient]);
+  }, [pinnedOpps, notificationThreshold, isClient]);
 
   // Process data for sorting and pinning
   const processedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return [];
+    // Start with the latest data from the API
+    const currentData = Array.isArray(data) ? data : [];
 
-    const result = [...data];
+    // Create a set of keys for items in the current API response
+    const currentKeys = new Set(
+      currentData.map((o) => `${o.pair}-${o.buyExchange}-${o.sellExchange}`),
+    );
 
-    // Mark items with their pinning status for easier sorting
-    const pinnedSet = new Set(pinnedPairs);
+    // Filter pinned items that ARE NOT in currentData (we'll merge them in next)
+    const missingPinned = pinnedOpps.filter(
+      (po) =>
+        !currentKeys.has(`${po.pair}-${po.buyExchange}-${po.sellExchange}`),
+    );
 
-    result.sort((a, b) => {
+    // Merge current data with missing pinned items
+    const mergedResult = [...currentData, ...missingPinned];
+
+    // Create a set of keys for all pinned items for efficient lookup during sorting
+    const pinnedKeys = new Set(
+      pinnedOpps.map((po) => `${po.pair}-${po.buyExchange}-${po.sellExchange}`),
+    );
+
+    // Sort the merged result
+    mergedResult.sort((a, b) => {
       const aKey = `${a.pair}-${a.buyExchange}-${a.sellExchange}`;
       const bKey = `${b.pair}-${b.buyExchange}-${b.sellExchange}`;
-      const aPinned = pinnedSet.has(aKey);
-      const bPinned = pinnedSet.has(bKey);
+      const aPinned = pinnedKeys.has(aKey);
+      const bPinned = pinnedKeys.has(bKey);
 
       // 1. Pinned items always go first
       if (aPinned && !bPinned) return -1;
@@ -230,8 +246,8 @@ export default function Dashboard() {
       return 0; // Maintain original order if no sort
     });
 
-    return result;
-  }, [data, pinnedPairs, sortOrder]);
+    return mergedResult;
+  }, [data, pinnedOpps, sortOrder]);
 
   // Handle Notifications when data updates
   useEffect(() => {
@@ -524,7 +540,10 @@ export default function Dashboard() {
 
             {processedData.map((opp, idx) => {
               const oppKey = `${opp.pair}-${opp.buyExchange}-${opp.sellExchange}`;
-              const isPinned = pinnedPairs.includes(oppKey);
+              const isPinned = pinnedOpps.some(
+                (p) =>
+                  `${p.pair}-${p.buyExchange}-${p.sellExchange}` === oppKey,
+              );
 
               return (
                 <div
@@ -536,10 +555,14 @@ export default function Dashboard() {
                     <div className="flex items-center space-x-3">
                       <button
                         onClick={() => {
-                          setPinnedPairs((prev) =>
+                          setPinnedOpps((prev) =>
                             isPinned
-                              ? prev.filter((p) => p !== oppKey)
-                              : [...prev, oppKey],
+                              ? prev.filter(
+                                  (p) =>
+                                    `${p.pair}-${p.buyExchange}-${p.sellExchange}` !==
+                                    oppKey,
+                                )
+                              : [...prev, opp],
                           );
                         }}
                         className={`transition-all duration-300 ${isPinned ? "text-yellow-400 scale-110" : "text-neutral-600 hover:text-neutral-400 md:opacity-0 group-hover:opacity-100"}`}

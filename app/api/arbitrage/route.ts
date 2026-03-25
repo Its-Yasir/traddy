@@ -37,7 +37,7 @@ export async function GET() {
           const markets = (await Promise.race([
             ex.instance.loadMarkets(),
             new Promise((_, reject) =>
-              setTimeout(() => reject(new Error(`${ex.name} timeout`)), 10000),
+              setTimeout(() => reject(new Error(`${ex.name} timeout`)), 30000),
             ),
           ])) as Record<string, Market>;
           const tickers = await ex.instance.fetchTickers();
