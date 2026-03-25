@@ -111,11 +111,21 @@ export default function Dashboard() {
   // Track pairs we've already notified about to avoid spamming
   const notifiedPairs = useRef<Set<string>>(new Set());
 
+  // Memoize the SWR key to include pinned items for live updates
+  const swrKey = useMemo(() => {
+    const isAuthenticated =
+      typeof window !== "undefined" && safeStorage.getItem("traddy_password");
+    if (!isAuthenticated) return null;
+
+    const pinnedKeys = pinnedOpps
+      .map((po) => `${po.pair}-${po.buyExchange}-${po.sellExchange}`)
+      .join(",");
+    return `/api/arbitrage${pinnedKeys ? `?pinned=${encodeURIComponent(pinnedKeys)}` : ""}`;
+  }, [pinnedOpps]);
+
   // Use SWR to poll every 3 seconds, but only if authenticated
   const { data, error, isLoading, isValidating } = useSWR<Opportunity[]>(
-    typeof window !== "undefined" && safeStorage.getItem("traddy_password")
-      ? "/api/arbitrage"
-      : null,
+    swrKey,
     fetcher,
     {
       refreshInterval: 3000,
