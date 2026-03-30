@@ -242,40 +242,42 @@ export function ArbitrageScanner() {
     <>
       {/* Visual Notification Overlay */}
       {activeNotification && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-50 w-screen max-w-[calc(100%-32px)] md:max-w-lg animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="bg-[#1a1a24]/90 backdrop-blur-xl border border-emerald-500/30 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.2)] overflow-hidden">
-            <div className="flex items-center p-5 gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <div className="flex items-center p-3 md:p-5 gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
                 <CoinIcon
                   symbol={activeNotification.pair}
-                  className="w-10 h-10 rounded-lg"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg"
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-white font-bold text-lg truncate flex items-center gap-2">
-                    {activeNotification.pair} Optimization
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wider">
+                <div className="flex items-center justify-between mb-0.5 md:mb-1 gap-2">
+                  <h3 className="text-white font-bold text-sm md:text-lg truncate flex items-center gap-1.5 md:gap-2">
+                    {activeNotification.pair}
+                    <span className="hidden sm:inline text-[8px] md:text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 uppercase tracking-wider font-black">
                       Live
                     </span>
                   </h3>
-                  <span className="text-emerald-400 font-black text-xl tabular-nums">
+                  <span className="text-emerald-400 font-black text-base md:text-xl tabular-nums shrink-0">
                     +{activeNotification.gapPercent.toFixed(2)}%
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-400 text-sm font-medium">
-                  <span className="flex items-center gap-1.5 text-white bg-white/5 px-2 py-1 rounded text-xs border border-white/5">
+                <div className="flex items-center gap-1.5 md:gap-2 text-neutral-400 text-[10px] md:text-sm font-medium overflow-hidden">
+                  <span className="flex items-center gap-1 md:gap-1.5 text-white bg-white/5 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs border border-white/5 shrink-0">
                     {EXCHANGE_LOGOS[activeNotification.buyExchange] && (
                       <img
                         src={EXCHANGE_LOGOS[activeNotification.buyExchange]}
                         alt=""
-                        className="w-3.5 h-3.5 rounded-sm"
+                        className="w-3 h-3 md:w-3.5 md:h-3.5 rounded-sm"
                       />
                     )}
-                    {activeNotification.buyExchange}
+                    <span className="truncate max-w-[50px] md:max-w-none">
+                      {activeNotification.buyExchange}
+                    </span>
                   </span>
                   <svg
-                    className="w-3 h-3 text-neutral-600"
+                    className="w-2.5 h-2.5 md:w-3 md:h-3 text-neutral-600 shrink-0"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -287,24 +289,26 @@ export function ArbitrageScanner() {
                       d="M14 5l7 7m0 0l-7 7m7-7H3"
                     />
                   </svg>
-                  <span className="flex items-center gap-1.5 text-white bg-white/5 px-2 py-1 rounded text-xs border border-white/5">
+                  <span className="flex items-center gap-1 md:gap-1.5 text-white bg-white/5 px-1.5 md:px-2 py-0.5 md:py-1 rounded text-[10px] md:text-xs border border-white/5 shrink-0">
                     {EXCHANGE_LOGOS[activeNotification.sellExchange] && (
                       <img
                         src={EXCHANGE_LOGOS[activeNotification.sellExchange]}
                         alt=""
-                        className="w-3.5 h-3.5 rounded-sm"
+                        className="w-3 h-3 md:w-3.5 md:h-3.5 rounded-sm"
                       />
                     )}
-                    {activeNotification.sellExchange}
+                    <span className="truncate max-w-[50px] md:max-w-none">
+                      {activeNotification.sellExchange}
+                    </span>
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setActiveNotification(null)}
-                className="p-2 hover:bg-white/5 rounded-full transition-colors text-neutral-500 hover:text-white"
+                className="p-1.5 md:p-2 hover:bg-white/5 rounded-full transition-colors text-neutral-500 hover:text-white shrink-0"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 md:w-5 md:h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -326,19 +330,23 @@ export function ArbitrageScanner() {
       )}
 
       {/* Control Area */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pb-6 border-b border-white/5 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 pb-6 border-b border-white/5 gap-6 md:gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Cross-Exchange Arbitrage</h2>
-          <p className="text-neutral-500 text-sm">Monitoring Binance, KuCoin, and Bybit</p>
+          <h2 className="text-xl font-black text-white tracking-tight">
+            Look twice, Leap once
+          </h2>
+          <p className="text-neutral-500 text-[11px] font-medium uppercase tracking-wider">
+            Monitoring Binance, KuCoin, and Bybit
+          </p>
         </div>
 
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+        <div className="flex flex-wrap items-center gap-3 md:gap-4">
+          <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10">
             <label
               htmlFor="threshold"
-              className="text-xs font-semibold text-neutral-400 uppercase tracking-tighter"
+              className="text-[9px] md:text-xs font-black text-neutral-400 uppercase tracking-widest"
             >
-              GAP % Alert:
+              Alert:
             </label>
             <input
               id="threshold"
@@ -349,8 +357,9 @@ export function ArbitrageScanner() {
               onChange={(e) =>
                 setNotificationThreshold(parseFloat(e.target.value) || 0)
               }
-              className="w-16 bg-transparent border-none focus:ring-0 text-sm font-bold text-emerald-400 p-0"
+              className="w-12 md:w-16 bg-transparent border-none focus:ring-0 text-sm font-black text-emerald-400 p-0 text-center"
             />
+            <span className="text-[10px] font-bold text-emerald-500/50">%</span>
           </div>
 
           <button
@@ -366,26 +375,22 @@ export function ArbitrageScanner() {
               };
               triggerNotification(testOpp);
             }}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold rounded-full transition-all"
+            className="px-3 md:px-4 py-1.5 md:py-2 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 border border-white/10 text-white text-[10px] md:text-xs font-black rounded-full transition-all uppercase tracking-widest"
           >
-            Test Alert
+            Test
           </button>
 
-          <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-            <span className="relative flex h-3 w-3">
+          <div className="flex items-center space-x-2 bg-white/5 backdrop-blur-md px-3 md:px-4 py-1.5 md:py-2 rounded-full border border-white/10">
+            <span className="relative flex h-2.5 w-2.5">
               <span
                 className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isLoading ? "bg-yellow-500" : error ? "bg-red-500" : "bg-emerald-400"}`}
               ></span>
               <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${isLoading ? "bg-yellow-500" : error ? "bg-red-500" : "bg-emerald-400"}`}
+                className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isLoading ? "bg-yellow-500" : error ? "bg-red-500" : "bg-emerald-400"}`}
               ></span>
             </span>
-            <span className="text-sm font-medium text-neutral-300">
-              {isLoading
-                ? "Fetching..."
-                : error
-                  ? "Error"
-                  : "Live (3s)"}
+            <span className="text-[10px] md:text-sm font-black text-neutral-300 uppercase tracking-tighter">
+              {isLoading ? "Scan" : error ? "Err" : "Live"}
             </span>
           </div>
         </div>
@@ -461,27 +466,24 @@ export function ArbitrageScanner() {
             </div>
           )}
 
-          {!isLoading &&
-            !error &&
-            Array.isArray(data) &&
-            data.length === 0 && (
-              <div className="py-24 text-center text-neutral-500">
-                <p>No arbitrage opportunities found.</p>
-              </div>
-            )}
+          {!isLoading && !error && Array.isArray(data) && data.length === 0 && (
+            <div className="py-24 text-center text-neutral-500">
+              <p>No arbitrage opportunities found.</p>
+            </div>
+          )}
 
           {processedData.map((opp, idx) => {
             const oppKey = `${opp.pair}-${opp.buyExchange}-${opp.sellExchange}`;
             const isPinned = pinnedOpps.some(
-              (p) =>
-                `${p.pair}-${p.buyExchange}-${p.sellExchange}` === oppKey,
+              (p) => `${p.pair}-${p.buyExchange}-${p.sellExchange}` === oppKey,
             );
 
             return (
               <div
                 key={`${oppKey}-${idx}`}
-                className={`flex flex-col md:grid md:grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-4 items-center hover:bg-white/[0.04] transition-all duration-300 border-l-2 ${isPinned ? "bg-white/[0.03] border-emerald-500" : "border-transparent"} group`}
+                className={`flex flex-col md:grid md:grid-cols-6 lg:grid-cols-8 gap-4 px-6 py-5 md:py-4 items-center hover:bg-white/[0.04] transition-all duration-300 border-l-2 ${isPinned ? "bg-white/[0.03] border-emerald-500" : "border-transparent"} group relative`}
               >
+                {/* Mobile Top Row: Pair & Gap */}
                 <div className="flex items-center justify-between w-full md:w-auto md:col-span-2 gap-4">
                   <div className="flex items-center space-x-3">
                     <button
@@ -496,7 +498,7 @@ export function ArbitrageScanner() {
                             : [...prev, opp],
                         );
                       }}
-                      className={`transition-all duration-300 ${isPinned ? "text-yellow-400 scale-110" : "text-neutral-600 hover:text-neutral-400 md:opacity-0 group-hover:opacity-100"}`}
+                      className={`transition-all duration-300 shrink-0 ${isPinned ? "text-yellow-400 scale-110" : "text-neutral-600 hover:text-neutral-400 md:opacity-0 group-hover:opacity-100"}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -513,23 +515,24 @@ export function ArbitrageScanner() {
                     </button>
                     <CoinIcon
                       symbol={opp.pair}
-                      className="w-8 h-8 md:w-9 md:h-9 rounded-full"
+                      className="w-9 h-9 md:w-9 md:h-9 rounded-full shrink-0"
                     />
-                    <div>
-                      <div className="font-bold text-neutral-100 md:text-lg tracking-tight">
+                    <div className="min-w-0">
+                      <div className="font-black text-neutral-100 text-base md:text-lg tracking-tight truncate">
                         {opp.pair}
                       </div>
-                      <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/5 w-fit">
+                      <div className="text-[9px] text-neutral-500 font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/5 w-fit border border-white/5">
                         Spot
                       </div>
                     </div>
                   </div>
 
+                  {/* Mobile-only Gap Badge */}
                   <div className="flex flex-col items-end md:hidden">
                     <span
-                      className={`inline-block px-3 py-1.5 rounded-lg text-sm font-black border ${
+                      className={`inline-block px-2.5 py-1.5 rounded-lg text-xs font-black border ${
                         opp.gapPercent > 3
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 animate-pulse-slow shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                           : opp.gapPercent > 1.5
                             ? "bg-green-500/10 text-green-400 border-green-500/20"
                             : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
@@ -540,7 +543,8 @@ export function ArbitrageScanner() {
                   </div>
                 </div>
 
-                <div className="hidden md:block col-span-1 text-right">
+                {/* Desktop Gap Column */}
+                <div className="hidden md:block col-span-1 text-center">
                   <span
                     className={`inline-block px-3 py-1 rounded-md text-sm font-black border transition-all duration-300 ${
                       opp.gapPercent > 3
@@ -554,22 +558,24 @@ export function ArbitrageScanner() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 md:contents w-full gap-4 pt-3 md:pt-0 border-t border-white/5 md:border-none">
+                {/* Trading Segment Grid */}
+                <div className="grid grid-cols-2 md:contents w-full gap-4 pt-4 md:pt-0 border-t border-white/5 md:border-none">
+                  {/* Buy Section */}
                   <div className="md:col-span-2 lg:col-span-2 md:pl-4">
-                    <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-tighter mb-1 md:hidden">
+                    <div className="text-[10px] text-neutral-500 font-black uppercase tracking-tighter mb-1.5 md:hidden">
                       Buy At
                     </div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+                    <div className="flex items-center gap-2 text-sm font-black text-neutral-200">
                       {EXCHANGE_LOGOS[opp.buyExchange] && (
                         <img
                           src={EXCHANGE_LOGOS[opp.buyExchange]}
-                          alt=""
-                          className="w-5 h-5 rounded-md shadow-sm opacity-90"
+                          alt={opp.buyExchange}
+                          className="w-5 h-5 rounded-md shadow-sm opacity-90 shrink-0"
                         />
                       )}
                       <span className="truncate">{opp.buyExchange}</span>
                     </div>
-                    <div className="text-xs text-emerald-400/80 font-mono mt-1 bg-emerald-400/5 w-fit px-1.5 py-0.5 rounded border border-emerald-500/10">
+                    <div className="text-xs text-emerald-400 font-mono mt-1.5 bg-emerald-400/5 w-fit px-2 py-0.5 rounded border border-emerald-500/10 font-bold">
                       $
                       {opp.lowPrice < 1
                         ? opp.lowPrice.toFixed(6)
@@ -580,21 +586,22 @@ export function ArbitrageScanner() {
                     </div>
                   </div>
 
+                  {/* Sell Section */}
                   <div className="md:col-span-1 lg:col-span-3 md:pl-4">
-                    <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-tighter mb-1 md:hidden">
+                    <div className="text-[10px] text-neutral-500 font-black uppercase tracking-tighter mb-1.5 md:hidden">
                       Sell At
                     </div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+                    <div className="flex items-center gap-2 text-sm font-black text-neutral-200">
                       {EXCHANGE_LOGOS[opp.sellExchange] && (
                         <img
                           src={EXCHANGE_LOGOS[opp.sellExchange]}
-                          alt=""
-                          className="w-5 h-5 rounded-md shadow-sm opacity-90"
+                          alt={opp.sellExchange}
+                          className="w-5 h-5 rounded-md shadow-sm opacity-90 shrink-0"
                         />
                       )}
                       <span className="truncate">{opp.sellExchange}</span>
                     </div>
-                    <div className="text-xs text-red-400/80 font-mono mt-1 bg-red-400/5 w-fit px-1.5 py-0.5 rounded border border-red-400/10">
+                    <div className="text-xs text-blue-400 font-mono mt-1.5 bg-blue-400/5 w-fit px-2 py-0.5 rounded border border-blue-400/10 font-bold">
                       $
                       {opp.highPrice < 1
                         ? opp.highPrice.toFixed(6)
